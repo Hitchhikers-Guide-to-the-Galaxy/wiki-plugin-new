@@ -1,0 +1,119 @@
+{
+  "title": "About New Plugin",
+  "plugin": "new",
+  "story": [
+    {
+      "type": "paragraph",
+      "id": "og3wn3fj",
+      "text": "Palette controls the plugin picker by curating which plugins are available at each skill level. Place a new item on your welcome page and click a level button \u2014 the factory menu updates immediately and the choice persists across page loads."
+    },
+    {
+      "type": "new",
+      "id": "v3gtuz4c",
+      "text": "LEVEL NUBE\nParagraph\nMarkdown\nImage\nVideo\nReference\n\nLEVEL AUTHOR\nParagraph\nMarkdown\nImage\nVideo\nReference\nCode\nHTML\nDate\nTimeline\nFamily\n\nLEVEL EXPERT\nALL\n\nLEVEL GEEK\nALL\n\nHIDE\nMath\nTransport\nRostermatic\nMech\nSolo\nUser Access Tokens"
+    },
+    {
+      "type": "markdown",
+      "id": "ipvrtpq9",
+      "text": "## DSL"
+    },
+    {
+      "type": "paragraph",
+      "id": "gnr8imi0",
+      "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier."
+    },
+    {
+      "type": "markdown",
+      "id": "u58mcrci",
+      "text": "LEVEL NUBE\nParagraph\nMarkdown\nImage\nVideo"
+    },
+    {
+      "type": "markdown",
+      "id": "cemjfu4i",
+      "text": "LEVEL GEEK\nALL\n\nHIDE\nMath\nTransport"
+    },
+    {
+      "type": "paragraph",
+      "id": "xto57b09",
+      "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation."
+    },
+    {
+      "type": "markdown",
+      "id": "r1vqmrlt",
+      "text": "## Repositories"
+    },
+    {
+      "type": "paragraph",
+      "id": "jiyqotb0",
+      "text": "Source: [github.com/Hitchhikers-Guide-to-the-Galaxy/wiki-plugin-new](https://github.com/Hitchhikers-Guide-to-the-Galaxy/wiki-plugin-new)"
+    },
+    {
+      "type": "paragraph",
+      "id": "o67ozpvq",
+      "text": "Package: [npmjs.com/package/wiki-plugin-new](https://www.npmjs.com/package/wiki-plugin-new)"
+    }
+  ],
+  "journal": [
+    {
+      "type": "create",
+      "id": "9d90g2bu",
+      "date": 1782336880986,
+      "provenance": "Created by David Bovill with Claude Sonnet 4.6",
+      "item": {
+        "title": "About New Plugin",
+        "story": [
+          {
+            "type": "paragraph",
+            "id": "og3wn3fj",
+            "text": "Palette controls the plugin picker by curating which plugins are available at each skill level. Place a new item on your welcome page and click a level button \u2014 the factory menu updates immediately and the choice persists across page loads."
+          },
+          {
+            "type": "new",
+            "id": "v3gtuz4c",
+            "text": "LEVEL NUBE\nParagraph\nMarkdown\nImage\nVideo\nReference\n\nLEVEL AUTHOR\nParagraph\nMarkdown\nImage\nVideo\nReference\nCode\nHTML\nDate\nTimeline\nFamily\n\nLEVEL EXPERT\nALL\n\nLEVEL GEEK\nALL\n\nHIDE\nMath\nTransport\nRostermatic\nMech\nSolo\nUser Access Tokens"
+          },
+          {
+            "type": "markdown",
+            "id": "ipvrtpq9",
+            "text": "## DSL"
+          },
+          {
+            "type": "paragraph",
+            "id": "gnr8imi0",
+            "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier."
+          },
+          {
+            "type": "markdown",
+            "id": "u58mcrci",
+            "text": "LEVEL NUBE\nParagraph\nMarkdown\nImage\nVideo"
+          },
+          {
+            "type": "markdown",
+            "id": "cemjfu4i",
+            "text": "LEVEL GEEK\nALL\n\nHIDE\nMath\nTransport"
+          },
+          {
+            "type": "paragraph",
+            "id": "xto57b09",
+            "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation."
+          },
+          {
+            "type": "markdown",
+            "id": "r1vqmrlt",
+            "text": "## Repositories"
+          },
+          {
+            "type": "paragraph",
+            "id": "jiyqotb0",
+            "text": "Source: [github.com/Hitchhikers-Guide-to-the-Galaxy/wiki-plugin-new](https://github.com/Hitchhikers-Guide-to-the-Galaxy/wiki-plugin-new)"
+          },
+          {
+            "type": "paragraph",
+            "id": "o67ozpvq",
+            "text": "Package: [npmjs.com/package/wiki-plugin-new](https://www.npmjs.com/package/wiki-plugin-new)"
+          }
+        ]
+      }
+    }
+  ]
+}
