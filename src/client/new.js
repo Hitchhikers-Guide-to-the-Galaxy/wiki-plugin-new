@@ -18,19 +18,32 @@
 //   Math
 //   Transport
 
+import { installFutureTakeover } from './future.js'
+
 // ── DSL Parser ────────────────────────────────────────────────────────────────
 
 export const LEVELS = ['NUBE', 'AUTHOR', 'EXPERT', 'GEEK']
 const STORAGE_KEY = 'wiki-new'
 
+export const FACTORY_STYLES = ['classic', 'list', 'rollover']
+
 export const parseDSL = text => {
   const levels = {}
   const hide   = []
+  let factory  = null   // FACTORY classic|list|rollover — factory display style
   let section  = null   // 'HIDE' | level name
 
   for (const raw of (text || '').split('\n')) {
     const line = raw.trim()
     if (!line || line.startsWith('//')) continue
+
+    // FACTORY <style> — which skin the factory item renders with
+    const factoryMatch = line.match(/^FACTORY\s+(\S+)$/i)
+    if (factoryMatch) {
+      const style = factoryMatch[1].toLowerCase()
+      if (FACTORY_STYLES.includes(style)) factory = style
+      continue
+    }
 
     // LEVEL <NAME>
     const levelMatch = line.match(/^LEVEL\s+(\S+)$/i)
@@ -61,7 +74,7 @@ export const parseDSL = text => {
     }
   }
 
-  return { levels, hide }
+  return { levels, hide, factory }
 }
 
 // ── Filter logic ──────────────────────────────────────────────────────────────
@@ -90,6 +103,11 @@ export const filterCatalog = (raw, config, level) => {
 let _interceptorCatalog = undefined
 let _globalConfig  = null
 let _globalLevel   = 'AUTHOR'
+// Factory display style — 'classic' is the untouched default-wiki picker and
+// the default here. 'list' (né 'chooser') and 'rollover' opt into the wiki-ux
+// skins, which read this same storage record before rendering
+// (client/wiki-ux.js factoryStyle). Legacy stored 'chooser' reads as 'list'.
+let _globalFactory = 'classic'
 
 const readStorage = () => {
   try {
@@ -98,12 +116,15 @@ const readStorage = () => {
     const d = JSON.parse(s)
     if (d.config) _globalConfig = d.config
     if (d.level && LEVELS.includes(d.level)) _globalLevel = d.level
+    if (d.factory === 'chooser') _globalFactory = 'list'          // legacy name
+    else if (FACTORY_STYLES.includes(d.factory)) _globalFactory = d.factory
   } catch {}
 }
 
 const writeStorage = () => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ config: _globalConfig, level: _globalLevel }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(
+      { config: _globalConfig, level: _globalLevel, factory: _globalFactory }))
   } catch {}
 }
 
@@ -147,6 +168,37 @@ const renderPluginList = (config, level) => {
   return filtered.map(e => `<span class="new-pill">${e.name}</span>`).join(' ')
 }
 
+const FACTORY_LABELS = {
+  classic:  { label: 'Classic',  hint: 'The default wiki factory — untouched' },
+  list:     { label: 'List',     hint: 'Searchable list — each plugin with a short summary' },
+  rollover: { label: 'Rollover', hint: 'Tabbed pills — roll over for what each plugin does' },
+}
+
+const renderFactoryRow = active =>
+  '<span class="new-factory-label">Factory style</span> ' +
+  FACTORY_STYLES.map(s => {
+    const { label, hint } = FACTORY_LABELS[s]
+    const cls = s === active ? 'new-btn new-active' : 'new-btn'
+    return `<button class="${cls} new-fbtn" data-factory="${s}" title="${hint}">${label}</button>`
+  }).join(' ')
+
+// Repaint factory items already on screen so a style flip is instant. The
+// emit wrapper (wiki-ux) reads the stored style, so plain re-emit is enough;
+// items without a data('item') record are skipped and pick the style up on
+// their next natural render.
+const reEmitFactories = () => {
+  try {
+    $('.item.factory').each(function () {
+      const $i = $(this)
+      const it = $i.data('item')
+      if (it && it.type === 'factory') {
+        $i.empty()
+        window.plugins.factory.emit($i, it)
+      }
+    })
+  } catch { /* no factories on screen */ }
+}
+
 const CSS = `
 <style id="wiki-new-styles">
 .wiki-plugin-new {
@@ -170,6 +222,8 @@ const CSS = `
   font-size: .85em; color: #334;
 }
 .new-hint { color: #888; font-size: .8em; margin-top: .3em; }
+.new-factory { margin-top: .5em; padding-top: .5em; border-top: 1px solid #ddd; }
+.new-factory-label { color: #888; font-size: .85em; margin-right: .5em; }
 </style>`
 
 let cssInjected = false
@@ -197,6 +251,7 @@ export const emit = ($item, item) => {
     `<div class="new-levels">${buttons}</div>` +
     `<div class="new-pills">${renderPluginList(config, level)}</div>` +
     `<div class="new-hint">${hint}</div>` +
+    `<div class="new-factory">${renderFactoryRow(_globalFactory)}</div>` +
     `</div>`
   )
 }
@@ -206,8 +261,11 @@ export const emit = ($item, item) => {
 export const bind = ($item, item) => {
   const config = parseDSL(item.text)
 
-  // Update global config from this item's DSL and reapply
+  // Update global config from this item's DSL and reapply. A FACTORY line in
+  // the DSL pins the factory style; without one the user's stored choice
+  // stands (default: classic).
   _globalConfig = config
+  if (config.factory) _globalFactory = config.factory
   writeStorage()
 
   // Refilter window.catalog with the new config
@@ -243,6 +301,16 @@ export const bind = ($item, item) => {
     } catch { refreshUI($item, item, config) }
   })
 
+  // Factory style switcher — persists, repaints any factory items on screen
+  $item.on('click', '.new-fbtn', function () {
+    const style = this.dataset.factory
+    if (!FACTORY_STYLES.includes(style)) return
+    _globalFactory = style
+    writeStorage()
+    refreshUI($item, item, config)
+    reEmitFactories()
+  })
+
   // Double-click to edit
   $item.on('dblclick', () => wiki.textEditor($item, item))
 }
@@ -255,11 +323,20 @@ const refreshUI = ($item, item, config) => {
   $item.find('.new-levels').html(buttons)
   $item.find('.new-pills').html(renderPluginList(config, level))
   $item.find('.new-hint').text(hint)
+  $item.find('.new-factory').html(renderFactoryRow(_globalFactory))
 }
 
 // ── Register ──────────────────────────────────────────────────────────────────
+// factory.json carries "editor": true so preLoadEditors imports this script at
+// startup — that early load is what lets installFutureTakeover supersede the
+// bundled future renderer before (or just after) the first lineup renders.
+// The editor hook itself defers to the plain text editor.
 
 if (typeof window !== 'undefined' && window !== null) {
   window.plugins = window.plugins || {}
-  window.plugins['new'] = { emit, bind }
+  window.plugins['new'] = {
+    emit, bind,
+    editor: ($item, item) => window.wiki.textEditor($item, item),
+  }
+  installFutureTakeover()
 }

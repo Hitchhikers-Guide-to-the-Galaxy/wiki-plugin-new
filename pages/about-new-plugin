@@ -5,7 +5,7 @@
     {
       "type": "paragraph",
       "id": "og3wn3fj",
-      "text": "Palette controls the plugin picker by curating which plugins are available at each skill level. Place a new item on your welcome page and click a level button \u2014 the factory menu updates immediately and the choice persists across page loads."
+      "text": "The New plugin owns the experience of making NEW things on a wiki. Two jobs: it curates the plugin picker by skill level, and it supersedes the built-in Future ghost \u2014 the \"We could not find this page\" placeholder \u2014 adding similar-page search to every missing page."
     },
     {
       "type": "new",
@@ -20,7 +20,12 @@
     {
       "type": "paragraph",
       "id": "gnr8imi0",
-      "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier."
+      "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier. A `FACTORY classic|list|rollover` line pins the factory display style."
+    },
+    {
+      "type": "markdown",
+      "id": "d1dbda2f18742b65",
+      "text": "## Factory Style\n\nThe factory item \u2014 the picker you get from the [+] button \u2014 can wear three skins. **Classic** (the default) is the untouched default-wiki menu. **List** is a searchable directory: each plugin a plain link with a 2-3 line summary beneath it. **Rollover** mirrors this plugin's own display \u2014 tabbed category sections of pill buttons, with a small-print panel at the foot that fills with a plugin's summary as you roll over its pill; click to choose.\n\nThe summaries are each plugin's own words \u2014 the first paragraph of its about page, shortened at a word boundary and cached for a day. Switch styles with the *Factory style* buttons on any `new` item, or pin one with a `FACTORY classic|list|rollover` line in the DSL; the choice persists in this browser and repaints on-screen factories immediately. The skins live in wiki-ux \u2014 on a farm without it, Classic is all there is."
     },
     {
       "type": "markdown",
@@ -36,6 +41,21 @@
       "type": "paragraph",
       "id": "xto57b09",
       "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation."
+    },
+    {
+      "type": "markdown",
+      "id": "e8eed31576dcd65c",
+      "text": "## The Future Ghost"
+    },
+    {
+      "type": "markdown",
+      "id": "354819d646d0d5e8",
+      "text": "When a page is missing, wiki-client builds a `future` item. This plugin replaces that item's renderer at runtime: the original affordances survive untouched \u2014 the create button, template offers, transporter, neighborhood duplicates \u2014 and an *edge section* is appended: the five nearest pages by meaning to the missing title, plus **Search farm** and **Search federation** buttons that open a full ranked report as a ghost page. On a farm without the [[About Similarity Plugin]] server the probe fails once and the ghost passes through unchanged."
+    },
+    {
+      "type": "markdown",
+      "id": "a1005b32fa077c47",
+      "text": "Why the runtime replacement? The wiki-client bundle preloads `window.plugins.future` and the plugin loader short-circuits on that map \u2014 a plugin literally *named* `future` can never load; `/plugins/future/future.js` is never fetched. The supported path is reassigning `window.plugins.future` from a client script that is already loaded, which is why this plugin's `factory.json` carries `\"editor\": true` \u2014 the preload flag that makes the wiki import this client at startup. Items rendered before the script lands are retro-fitted by an idempotent sweep."
     },
     {
       "type": "markdown",
@@ -65,7 +85,7 @@
           {
             "type": "paragraph",
             "id": "og3wn3fj",
-            "text": "Palette controls the plugin picker by curating which plugins are available at each skill level. Place a new item on your welcome page and click a level button \u2014 the factory menu updates immediately and the choice persists across page loads."
+            "text": "The New plugin owns the experience of making NEW things on a wiki. Two jobs: it curates the plugin picker by skill level, and it supersedes the built-in Future ghost \u2014 the \"We could not find this page\" placeholder \u2014 adding similar-page search to every missing page."
           },
           {
             "type": "new",
@@ -80,7 +100,12 @@
           {
             "type": "paragraph",
             "id": "gnr8imi0",
-            "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier."
+            "text": "Each `LEVEL` block names a skill tier and lists the plugins available at that tier \u2014 one plugin name per line, matching the name in its `factory.json`. `ALL` means every installed plugin. The `HIDE` block removes plugins from all levels regardless of tier. A `FACTORY classic|list|rollover` line pins the factory display style."
+          },
+          {
+            "type": "markdown",
+            "id": "d1dbda2f18742b65",
+            "text": "## Factory Style\n\nThe factory item \u2014 the picker you get from the [+] button \u2014 can wear three skins. **Classic** (the default) is the untouched default-wiki menu. **List** is a searchable directory: each plugin a plain link with a 2-3 line summary beneath it. **Rollover** mirrors this plugin's own display \u2014 tabbed category sections of pill buttons, with a small-print panel at the foot that fills with a plugin's summary as you roll over its pill; click to choose.\n\nThe summaries are each plugin's own words \u2014 the first paragraph of its about page, shortened at a word boundary and cached for a day. Switch styles with the *Factory style* buttons on any `new` item, or pin one with a `FACTORY classic|list|rollover` line in the DSL; the choice persists in this browser and repaints on-screen factories immediately. The skins live in wiki-ux \u2014 on a farm without it, Classic is all there is."
           },
           {
             "type": "markdown",
@@ -96,6 +121,21 @@
             "type": "paragraph",
             "id": "xto57b09",
             "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation."
+          },
+          {
+            "type": "markdown",
+            "id": "e8eed31576dcd65c",
+            "text": "## The Future Ghost"
+          },
+          {
+            "type": "markdown",
+            "id": "354819d646d0d5e8",
+            "text": "When a page is missing, wiki-client builds a `future` item. This plugin replaces that item's renderer at runtime: the original affordances survive untouched \u2014 the create button, template offers, transporter, neighborhood duplicates \u2014 and an *edge section* is appended: the five nearest pages by meaning to the missing title, plus **Search farm** and **Search federation** buttons that open a full ranked report as a ghost page. On a farm without the [[About Similarity Plugin]] server the probe fails once and the ghost passes through unchanged."
+          },
+          {
+            "type": "markdown",
+            "id": "a1005b32fa077c47",
+            "text": "Why the runtime replacement? The wiki-client bundle preloads `window.plugins.future` and the plugin loader short-circuits on that map \u2014 a plugin literally *named* `future` can never load; `/plugins/future/future.js` is never fetched. The supported path is reassigning `window.plugins.future` from a client script that is already loaded, which is why this plugin's `factory.json` carries `\"editor\": true` \u2014 the preload flag that makes the wiki import this client at startup. Items rendered before the script lands are retro-fitted by an idempotent sweep."
           },
           {
             "type": "markdown",
