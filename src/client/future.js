@@ -22,6 +22,23 @@
 
 const INLINE_LIMIT = 5
 const REPORT_LIMIT = 20
+const SCAFFOLD_REFS = 12      // reference items gathered for a created page
+const SCAFFOLD_SEE = 8        // local similar pages offered as [[wikilinks]]
+const AUTHOR_API = '//api.localhost'
+
+let authorProbe = null    // Promise<boolean> — farm API author route present?
+
+const probeAuthor = () => {
+  if (!authorProbe) {
+    authorProbe = fetch(`${AUTHOR_API}/author/health`)
+      .then(r => r.ok).catch(() => false)
+  }
+  return authorProbe
+}
+
+const newId = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(8)))
+    .map(b => b.toString(16).padStart(2, '0')).join('')
 
 let original = null       // the bundled future plugin, saved at install
 let simProbe = null       // Promise<boolean> — similarity server present?
@@ -48,6 +65,9 @@ const EDGE_CSS = `
 .new-edge-form button { padding: 4px 12px; background: #eee;
   border: 1px solid #bbb; border-radius: 3px; cursor: pointer; font-size: 13px; }
 .new-edge-form button:hover { background: #e0e0e8; }
+.new-edge-context { width: 100%; box-sizing: border-box; margin-top: 8px;
+  padding: 4px 8px; font-size: 13px; font-family: inherit;
+  border: 1px solid #ccc; border-radius: 3px; }
 </style>`
 
 const injectCss = () => {
@@ -65,12 +85,26 @@ const postReport = async body => {
   return res.json()
 }
 
+// A slug-shaped title becomes a real one: "galaxy-search-onboarding" →
+// "Galaxy Search Onboarding". Small words stay lowercase except up front.
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'in',
+  'of', 'on', 'or', 'the', 'to', 'vs', 'with'])
+
+const deslug = slug =>
+  slug.split('-').map((w, i) =>
+    (i > 0 && SMALL_WORDS.has(w)) ? w
+      : w.charAt(0).toUpperCase() + w.slice(1)
+  ).join(' ')
+
 // The missing page's title: the future item carries it; swept items fall back
-// to the host page's raw data or its slug.
+// to the host page's raw data or its slug. A page reached by its /view/ URL
+// arrives with the slug AS the title — de-slug it so searches read naturally
+// and a created page is not stuck with a hyphenated lowercase title.
 const titleFor = ($item, item) => {
-  if (item && item.title) return item.title
-  const $page = $item.parents('.page:first')
-  return ($page.data('data') || {}).title || $page.attr('id') || ''
+  const title = (item && item.title) ||
+    ($item.parents('.page:first').data('data') || {}).title ||
+    $item.parents('.page:first').attr('id') || ''
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(title) ? deslug(title) : title
 }
 
 const attachEdge = ($item, item) => {
@@ -173,18 +207,299 @@ const attachEdge = ($item, item) => {
     $item.find('.new-edge-q').on('keydown', e => {
       if (e.key === 'Enter') doReport(['*'])
     })
+
+    attachCreate($item, $page, title)
+  })()
+}
+
+// ── Creating the page ────────────────────────────────────────────────────────
+//
+// Two richer alternatives to the original "create new blank page": a scaffold
+// of everything the edge section knows (factory + # See + # Reference +
+// # Search), and the same scaffold opened with AI-authored prose from the
+// farm API. Both end in a real create action PUT — the server appends the
+// journal entry and updates sitemap and site-index itself — then a reload,
+// which rebuilds the ghost panel as the real page.
+
+// Pack titles into # See bullets: comma + "and" joins, no Oxford comma,
+// ~50 visible characters per line (the fedwiki-see-section convention).
+const seeLines = titles => {
+  const groups = []
+  let group = []
+  let width = 0
+  for (const t of titles) {
+    if (group.length && width + t.length + 2 > 50) {
+      groups.push(group)
+      group = []
+      width = 0
+    }
+    group.push(t)
+    width += t.length + 2
+  }
+  if (group.length) groups.push(group)
+  return groups.map(g => {
+    const links = g.map(t => `[[${t}]]`)
+    return '- ' + (links.length > 1
+      ? links.slice(0, -1).join(', ') + ' and ' + links[links.length - 1]
+      : links[0])
+  })
+}
+
+const shorten = (text, max = 60) => {
+  const t = (text || '')
+    .replace(/\[\[([^\]]*)\]\]/g, '$1')        // wikilinks → their titles
+    .replace(/\[(\S+) ([^\]]+)\]/g, '$2')      // external links → their labels
+    .replace(/[*_`>#]/g, '')                   // emphasis and quote markup
+    .replace(/\s+/g, ' ').trim()
+  if (t.length <= max) return t
+  return t.slice(0, max).replace(/\s+\S*$/, '') + '…'
+}
+
+// Everything the scaffold needs, fetched fresh at click time: same-title
+// twins, farm-wide similar pages (references), same-site similar pages
+// (see links).
+const gatherScaffold = async (slug, title) => {
+  const twins = await fetch('/system/title-twins.json?slug=' + encodeURIComponent(slug) +
+    '&limit=' + SCAFFOLD_REFS).then(r => r.ok ? r.json() : []).catch(() => [])
+  const farm = await postReport({ query: title, domains: ['*'], limit: SCAFFOLD_REFS })
+    .catch(() => ({ story: [] }))
+  const local = await postReport({ query: title, domains: [location.host], limit: SCAFFOLD_SEE })
+    .catch(() => ({ story: [] }))
+
+  const refs = []
+  const seen = new Set()
+  for (const t of twins) {
+    if (t.domain === location.host) continue
+    seen.add(`${t.domain}/${slug}`)
+    refs.push({ site: t.domain, slug, title: t.title, text: 'twin of this title' })
+  }
+  for (const r of (farm.story || []).filter(i => i.type === 'reference')) {
+    if (r.site === location.host) continue
+    if (seen.has(`${r.site}/${r.slug}`)) continue
+    seen.add(`${r.site}/${r.slug}`)
+    refs.push({ site: r.site, slug: r.slug, title: r.title, text: shorten(r.text) })
+  }
+  const localTitles = (local.story || [])
+    .filter(i => i.type === 'reference' && i.title !== title)
+    .map(i => i.title)
+  return { refs: refs.slice(0, SCAFFOLD_REFS), localTitles }
+}
+
+// The created page's story: optional prose, optional factory, then the
+// # See / # Reference / # Search sections in the house order.
+const buildScaffold = ({ prose = [], withFactory, localTitles, refs, stub }) => {
+  const story = []
+  for (const p of prose) story.push({ type: 'markdown', id: newId(), text: p })
+  if (withFactory) story.push({ type: 'factory', id: newId() })
+  const lines = seeLines(localTitles)
+  if (stub) lines.unshift('- [[Stub]]')
+  if (lines.length)
+    story.push({ type: 'markdown', id: newId(), text: '# See\n\n' + lines.join('\n') })
+  if (refs.length) {
+    story.push({ type: 'markdown', id: newId(), text: '# Reference' })
+    for (const r of refs)
+      story.push({ type: 'reference', id: newId(),
+        site: r.site, slug: r.slug, title: r.title, text: r.text })
+  }
+  story.push({ type: 'markdown', id: newId(), text: '# Search' })
+  story.push({ type: 'similarity', id: newId(), text: '*\nGALAXY' })
+  return story
+}
+
+const putCreate = async (slug, title, story, provenance) => {
+  const action = { type: 'create', id: newId(), date: Date.now(),
+    item: { title, story }, provenance }
+  const res = await fetch(`/page/${slug}/action`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + encodeURIComponent(JSON.stringify(action)),
+  })
+  if (res.status === 409) return    // someone beat us to it — the reload shows it
+  if (res.status === 403 || res.status === 401)
+    throw new Error('not authorized — log in as the site owner first')
+  if (!res.ok) throw new Error(`create failed: ${res.status}`)
+}
+
+const attachCreate = ($item, $page, title) => {
+  const slug = ($page.attr('id') || '').split('_rev')[0]
+  if (!slug) return
+
+  $item.find('.new-edge').append(`
+    <p class="new-edge-status">Or create this page now:</p>
+    <p class="new-edge-form">
+      <button class="new-edge-create">Create page with links</button>
+    </p>
+    <span class="new-edge-authoring" style="display:none">
+      <textarea class="new-edge-context" rows="3"
+        placeholder="Ideas or context to inform the authored content (optional)"></textarea>
+      <p class="new-edge-form">
+        <button class="new-edge-author">Author page with content</button>
+      </p>
+    </span>
+    <p class="new-edge-status new-edge-create-msg"></p>`)
+
+  const msg = $item.find('.new-edge-create-msg')
+  const busy = state => {
+    $item.find('.new-edge-create, .new-edge-author').prop('disabled', state)
+  }
+
+  probeAuthor().then(ok => {
+    if (ok) $item.find('.new-edge-authoring').show()
+  })
+
+  // Scaffold create: links only, factory on top for the content to come.
+  $item.find('.new-edge-create').on('click', async () => {
+    busy(true)
+    msg.text('Gathering links…')
+    try {
+      const { refs, localTitles } = await gatherScaffold(slug, title)
+      const story = buildScaffold({ withFactory: true, localTitles, refs })
+      msg.text('Creating page…')
+      await putCreate(slug, title, story,
+        'Created with links from the future ghost by wiki-plugin-new.')
+      location.reload()
+    } catch (e) {
+      msg.text(`Create failed: ${e.message}`)
+      busy(false)
+    }
+  })
+
+  // AI authoring: the farm API runs a headless Claude job over the gathered
+  // context; we poll until the prose arrives, then create the same scaffold
+  // with the prose on top (no factory — the content is the point).
+  $item.find('.new-edge-author').on('click', async () => {
+    busy(true)
+    msg.text('Gathering links…')
+    try {
+      const { refs, localTitles } = await gatherScaffold(slug, title)
+      const context = $item.find('.new-edge-context').val().trim()
+      msg.text('Starting the author…')
+      const start = await fetch(`${AUTHOR_API}/author/page`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, context, domain: location.host,
+          see: localTitles, references: refs }),
+      })
+      if (!start.ok) throw new Error(`author start failed: ${start.status}`)
+      const { job } = await start.json()
+      const t0 = Date.now()
+      let result
+      for (;;) {
+        await new Promise(r => setTimeout(r, 3000))
+        const res = await fetch(`${AUTHOR_API}/author/page/${job}`)
+        if (!res.ok) throw new Error(`author poll failed: ${res.status}`)
+        result = await res.json()
+        if (result.status === 'done') break
+        if (result.status === 'error') throw new Error(result.error)
+        msg.text(`Authoring… ${Math.round((Date.now() - t0) / 1000)}s ` +
+          '(a thoughtful page takes a minute or three)')
+      }
+      const story = buildScaffold({ prose: result.paragraphs,
+        localTitles, refs, stub: result.stub })
+      msg.text('Creating page…')
+      await putCreate(slug, title, story,
+        'AI authored from the future ghost by wiki-plugin-new via the Claude CLI' +
+        (context ? '; context notes by the site owner.' : '.'))
+      location.reload()
+    } catch (e) {
+      msg.text(`Author failed: ${e.message}`)
+      busy(false)
+    }
+  })
+}
+
+// ── Speaking the page ────────────────────────────────────────────────────────
+//
+// Where the farm runs the audionote plugin, the ghost offers its Voice Tool,
+// titled with the missing page's name. The tool opens as a ghost of the site's
+// own Voice Tool page with a TITLE: line added to its audionote item, so no
+// change to audionote is needed. The tool looks past ghosts for its subject,
+// which makes it the page holding the red link: saving under the title turns
+// that link blue instead of adding a new one.
+
+let voiceProbe = null     // Promise<page|null> — the Voice Tool, if installed
+
+const probeVoice = () => {
+  if (!voiceProbe) {
+    voiceProbe = (async () => {
+      // The farm must RUN audionote's server side, not merely ship its client:
+      // sweet-server lists every vendored plugin but mounts none of their
+      // routes, so ask the farm API whether the transcription op is mounted.
+      const api = await fetch('/system/api.json').then(r => r.ok ? r.json() : {})
+      if (!api.paths?.['/system/api/audionote/hear.json']) return null
+      const page = await fetch('/voice-tool.json').then(r => r.ok ? r.json() : null)
+      const tool = (page?.story || []).find(i =>
+        i.type === 'audionote' && /^SUBJECT\s*$/m.test(i.text || ''))
+      return tool ? page : null
+    })().catch(() => null)
+  }
+  return voiceProbe
+}
+
+// One item id per missing page, so the tool's unsaved draft (kept in the
+// browser under that id) comes back when the same ghost is spoken to again.
+const idFor = async key => {
+  const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(key))
+  return Array.from(new Uint8Array(digest).slice(0, 8))
+    .map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+const voiceToolFor = async (page, slug, title) => {
+  const id = await idFor(`${location.host}/${slug}`)
+  const story = page.story.map(i => {
+    if (i.type !== 'audionote' || !/^SUBJECT\s*$/m.test(i.text || '')) return { ...i }
+    const lines = i.text.split('\n').filter(l => !/^\s*TITLE:/.test(l))
+    return { ...i, id, text: [...lines, `TITLE: ${title}`].join('\n') }
+  })
+  return { title: page.title, story }
+}
+
+const attachVoice = ($item, item) => {
+  if ($item.hasClass('new-voice-attached')) return
+  $item.addClass('new-voice-attached')
+  const title = titleFor($item, item)
+  const $page = $item.parents('.page:first')
+  const slug = ($page.attr('id') || '').split('_rev')[0]
+  if (!title || !slug) return
+  injectCss()
+  // A placeholder now, so the option sits above the edge section however
+  // the two probes race; it shows only once the Voice Tool is found.
+  const $voice = $(`
+    <div class="new-voice" style="display:none">
+      <p class="new-edge-form">
+        <button class="new-voice-speak" title="Open the Voice Tool beside this page, titled with its name — speak, summarise, and save the notes as this page">🎙 Speak this page</button>
+      </p>
+    </div>`).appendTo($item)
+
+  ;(async () => {
+    if (window.isOwner === false) return   // the farm transcribes only for the owner
+    const page = await probeVoice()
+    if (!page) return
+    $voice.show()
+    $voice.find('.new-voice-speak').on('click', async e => {
+      e.preventDefault()
+      e.stopPropagation()
+      const tool = await voiceToolFor(page, slug, title)
+      window.wiki.showResult(window.wiki.newPage(tool), { $page })
+    })
   })()
 }
 
 // Replacement plugin object. wrap() never runs on direct assignments, so both
 // halves guard themselves and fall back to the original on any failure.
 const emit = ($item, item) => {
+  // wiki-client 0.32 reads wiki.neighborhood[site].lastModified for every
+  // site in item.context, and throws when a site has been dropped from the
+  // neighborhood. Hand it only the sites the neighborhood still knows.
+  const known = item?.context?.filter(site => window.wiki?.neighborhood?.[site])
+  if (known && known.length !== item.context.length) item = { ...item, context: known }
   try { original.emit($item, item) }
   catch (err) { $item.append(`<p class="error">${err}</p>`) }
 }
 
 const bind = ($item, item) => {
   try { original.bind($item, item) } catch { /* original bind is transport-only */ }
+  try { attachVoice($item, item) } catch { /* voice option is best-effort */ }
   try { attachEdge($item, item) } catch { /* edge section is best-effort */ }
 }
 
@@ -192,6 +507,7 @@ const bind = ($item, item) => {
 const sweep = () => {
   try {
     $('.item.future').each(function () {
+      attachVoice($(this), $(this).data('item') || null)
       attachEdge($(this), $(this).data('item') || null)
     })
   } catch { /* nothing to sweep */ }
