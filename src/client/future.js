@@ -65,6 +65,7 @@ const EDGE_CSS = `
 .new-edge-form button { padding: 4px 12px; background: #eee;
   border: 1px solid #bbb; border-radius: 3px; cursor: pointer; font-size: 13px; }
 .new-edge-form button:hover { background: #e0e0e8; }
+.new-voice-note { font-size: 12px; color: #888; align-self: center; }
 .new-edge-context { width: 100%; box-sizing: border-box; margin-top: 8px;
   padding: 4px 8px; font-size: 13px; font-family: inherit;
   border: 1px solid #ccc; border-radius: 3px; }
@@ -472,10 +473,14 @@ const attachVoice = ($item, item) => {
     </div>`).appendTo($item)
 
   ;(async () => {
-    if (window.isOwner === false) return   // the farm transcribes only for the owner
     const page = await probeVoice()
     if (!page) return
     $voice.show()
+    if (window.isOwner === false) {   // the farm transcribes only for the owner: offer it, and say why it waits
+      $voice.find('.new-voice-speak').prop('disabled', true)
+      $voice.find('.new-edge-form').append(' <span class="new-voice-note">log in as the owner of this site to speak this page</span>')
+      return
+    }
     $voice.find('.new-voice-speak').on('click', async e => {
       e.preventDefault()
       e.stopPropagation()
