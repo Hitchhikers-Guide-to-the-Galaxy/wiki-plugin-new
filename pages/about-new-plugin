@@ -40,7 +40,7 @@
     {
       "type": "paragraph",
       "id": "xto57b09",
-      "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation."
+      "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation. A browser starts on `AUTHOR`; when the item does not define the active level, the nearest defined level below it applies (else the nearest above), and only the levels the item defines get a button. So an item with just `NUBE` and `GEEK` gives a newcomer the `NUBE` menu straight away."
     },
     {
       "type": "markdown",
@@ -153,6 +153,25 @@
             "text": "Package: [npmjs.com/package/wiki-plugin-new](https://www.npmjs.com/package/wiki-plugin-new)"
           }
         ]
+      }
+    },
+    {
+      "type": "edit",
+      "id": "xto57b09",
+      "item": {
+        "type": "paragraph",
+        "id": "xto57b09",
+        "text": "Levels: `NUBE` \u2014 newcomer basics. `AUTHOR` \u2014 content creator. `EXPERT` \u2014 most plugins. `GEEK` \u2014 everything (minus HIDE list). The active level is stored in `localStorage` so it survives page navigation. A browser starts on `AUTHOR`; when the item does not define the active level, the nearest defined level below it applies (else the nearest above), and only the levels the item defines get a button. So an item with just `NUBE` and `GEEK` gives a newcomer the `NUBE` menu straight away."
+      },
+      "date": 1793034358980,
+      "provenance": "Claude Code (Opus 5.5): 0.3.2 level fallback",
+      "meta": {
+        "v": 1,
+        "agent": {
+          "kind": "ai",
+          "name": "Claude Code",
+          "session": "07827e45-c901-439a-a177-b8fad70f8fd4"
+        }
       }
     }
   ]
