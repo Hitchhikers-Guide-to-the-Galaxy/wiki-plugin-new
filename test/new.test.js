@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDSL, filterCatalog, LEVELS } from '../src/client/new.js'
+import { parseDSL, filterCatalog, effectiveLevel, LEVELS } from '../src/client/new.js'
 
 describe('parseDSL', () => {
   it('parses LEVEL blocks with plugin names', () => {
@@ -83,11 +83,38 @@ describe('filterCatalog', () => {
     assert.deepEqual(result.map(e => e.name), ['Paragraph', 'Markdown'])
   })
 
-  it('unknown level falls back to pass-through (returns full catalog minus HIDE)', () => {
-    const config = parseDSL('LEVEL NUBE\nParagraph\n\nHIDE\nMath')
+  it('a level the config does not define falls to the nearest defined level below', () => {
+    const config = parseDSL('LEVEL NUBE\nMarkdown\n\nLEVEL GEEK\nALL\n\nHIDE\nMath')
+    const result = filterCatalog(catalog, config, 'AUTHOR')
+    assert.deepEqual(result.map(e => e.name), ['Markdown'])
+    assert.deepEqual(filterCatalog(catalog, config, 'EXPERT').map(e => e.name), ['Markdown'])
+  })
+
+  it('with nothing defined below, falls to the nearest defined level above', () => {
+    const config = parseDSL('LEVEL EXPERT\nDate\n\nLEVEL GEEK\nALL')
+    assert.deepEqual(filterCatalog(catalog, config, 'NUBE').map(e => e.name), ['Date'])
+  })
+
+  it('a config with no LEVEL blocks shows everything minus HIDE', () => {
+    const config = parseDSL('HIDE\nMath')
     const result = filterCatalog(catalog, config, 'AUTHOR')
     assert.ok(!result.find(e => e.name === 'Math'), 'HIDE still applies')
     assert.ok(result.find(e => e.name === 'Timeline'), 'unlisted plugins still shown')
+  })
+})
+
+describe('effectiveLevel', () => {
+  const config = parseDSL('LEVEL NUBE\nMarkdown\n\nLEVEL GEEK\nALL')
+  it('keeps a defined level', () => {
+    assert.equal(effectiveLevel(config, 'GEEK'), 'GEEK')
+  })
+  it('maps AUTHOR and EXPERT down to NUBE', () => {
+    assert.equal(effectiveLevel(config, 'AUTHOR'), 'NUBE')
+    assert.equal(effectiveLevel(config, 'EXPERT'), 'NUBE')
+  })
+  it('leaves the level alone when nothing is defined', () => {
+    assert.equal(effectiveLevel(parseDSL(''), 'AUTHOR'), 'AUTHOR')
+    assert.equal(effectiveLevel(null, 'AUTHOR'), 'AUTHOR')
   })
 })
 

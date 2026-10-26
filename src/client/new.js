@@ -79,12 +79,29 @@ export const parseDSL = text => {
 
 // ── Filter logic ──────────────────────────────────────────────────────────────
 
+// The levels a config defines, in LEVELS order. Empty when it has no LEVEL
+// blocks, in which case every level sees the whole catalog minus HIDE.
+export const definedLevels = config =>
+  LEVELS.filter(l => config && config.levels && config.levels[l])
+
+// The level actually applied. A browser starts on AUTHOR, so a config that
+// only defines NUBE and GEEK used to show every plugin until Nube was
+// clicked. Now a level the config does not define falls to the nearest
+// defined level below it, else the nearest above.
+export const effectiveLevel = (config, level) => {
+  const defined = definedLevels(config)
+  if (!defined.length || defined.includes(level)) return level
+  const at = LEVELS.indexOf(level)
+  const below = defined.filter(l => LEVELS.indexOf(l) < at)
+  return below.length ? below[below.length - 1] : defined[0]
+}
+
 export const filterCatalog = (raw, config, level) => {
   if (!config || !raw) return raw
   const { levels, hide } = config
 
   const hideSet = new Set((hide || []).map(n => n.toLowerCase()))
-  const allowed = levels && levels[level]
+  const allowed = levels && levels[effectiveLevel(config, level)]
 
   return raw.filter(entry => {
     if (!entry || !entry.name) return false
@@ -238,12 +255,19 @@ const injectCSS = () => {
 
 // ── emit ──────────────────────────────────────────────────────────────────────
 
+// Only the levels this item defines get a button (all four when it defines
+// none), and the active one is the level actually applied.
+const levelButtons = (config, level) => {
+  const shown = definedLevels(config).length ? definedLevels(config) : LEVELS
+  return shown.map(l => renderLevel(l, level)).join('')
+}
+
 export const emit = ($item, item) => {
   injectCSS()
   const config = parseDSL(item.text)
-  const level  = _globalLevel
+  const level  = effectiveLevel(config, _globalLevel)
 
-  const buttons = LEVELS.map(l => renderLevel(l, level)).join('')
+  const buttons = levelButtons(config, level)
   const hint    = LEVEL_LABELS[level]?.hint || ''
 
   $item.html(
@@ -316,8 +340,8 @@ export const bind = ($item, item) => {
 }
 
 const refreshUI = ($item, item, config) => {
-  const level   = _globalLevel
-  const buttons = LEVELS.map(l => renderLevel(l, level)).join('')
+  const level   = effectiveLevel(config, _globalLevel)
+  const buttons = levelButtons(config, level)
   const hint    = LEVEL_LABELS[level]?.hint || ''
 
   $item.find('.new-levels').html(buttons)
