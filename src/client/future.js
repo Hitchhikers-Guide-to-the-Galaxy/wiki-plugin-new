@@ -490,6 +490,67 @@ const attachVoice = ($item, item) => {
   })()
 }
 
+// ── A blank page opens ready to write ────────────────────────────────────────
+//
+// The original "create new blank page" button (legacy.js, delegated on .main)
+// saves a page with an empty story. We leave that handler alone and follow it:
+// once the page is rebuilt, a markdown item opens in the text editor. Typing
+// saves it as the page's first item; leaving it empty saves nothing and the
+// item vanishes — the same rule a new paragraph follows after Enter.
+//
+// The editor only saves a new item as an `add` when it is given an `after`
+// id, and the first item on a page has nothing before it. So we pass a
+// sentinel and strip it in pageHandler.put, giving the journal the same
+// after-less add that the [+] button writes on an empty page.
+
+const TOP = 'wiki-plugin-new-top'
+
+const installPutFilter = () => {
+  const handler = window.wiki?.pageHandler
+  if (!handler || handler.newTopFilter) return
+  const put = handler.put
+  handler.put = function ($page, action) {
+    if (action && action.type === 'add' && action.after === TOP) {
+      action = { ...action }
+      delete action.after
+    }
+    return put.call(this, $page, action)
+  }
+  handler.newTopFilter = true
+}
+
+const openBlankEditor = ($page, tries = 0) => {
+  const $story = $page.find('.story')
+  if (!$story.length || $page.hasClass('ghost')) {   // still rebuilding
+    if (tries < 40) setTimeout(() => openBlankEditor($page, tries + 1), 50)
+    return
+  }
+  if ($story.children('.item').length) return        // something already there
+  if (!$('.editEnable').is(':visible')) return       // not signed in to edit
+  const item = { type: 'markdown', id: newId(), text: '' }
+  const $item = $(`<div class="item markdown" data-id="${item.id}"></div>`)
+  $item.data('item', item).data('pageElement', $page)
+  $story.append($item)
+  window.wiki.textEditor($item, item, { after: TOP })
+  $item.find('textarea')
+    .attr('placeholder', 'Start writing… (leave empty to add nothing)')
+    .trigger('focus')
+}
+
+const attachBlank = $item => {
+  if ($item.hasClass('new-blank-attached')) return
+  $item.addClass('new-blank-attached')
+  // A direct handler runs before legacy's delegated one, while the button is
+  // still in the page; legacy then empties and rebuilds that same page div.
+  $item.find('button.create').each(function () {
+    if ($(this).data('slug')) return                 // template creates keep their story
+    $(this).on('click', () => {
+      const $page = $item.parents('.page:first')
+      setTimeout(() => openBlankEditor($page), 0)
+    })
+  })
+}
+
 // Replacement plugin object. wrap() never runs on direct assignments, so both
 // halves guard themselves and fall back to the original on any failure.
 const emit = ($item, item) => {
@@ -504,6 +565,7 @@ const emit = ($item, item) => {
 
 const bind = ($item, item) => {
   try { original.bind($item, item) } catch { /* original bind is transport-only */ }
+  try { attachBlank($item) } catch { /* blank editor is best-effort */ }
   try { attachVoice($item, item) } catch { /* voice option is best-effort */ }
   try { attachEdge($item, item) } catch { /* edge section is best-effort */ }
 }
@@ -512,6 +574,7 @@ const bind = ($item, item) => {
 const sweep = () => {
   try {
     $('.item.future').each(function () {
+      attachBlank($(this))
       attachVoice($(this), $(this).data('item') || null)
       attachEdge($(this), $(this).data('item') || null)
     })
@@ -525,6 +588,7 @@ export const installFutureTakeover = () => {
     if (window.plugins.future.newTakeover) return true
     original = window.plugins.future
     window.plugins.future = { emit, bind, newTakeover: true }
+    installPutFilter()
     sweep()
     return true
   }

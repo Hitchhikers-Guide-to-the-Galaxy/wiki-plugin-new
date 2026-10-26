@@ -54,6 +54,11 @@
     },
     {
       "type": "markdown",
+      "id": "7365587d293483bb",
+      "text": "The plain **create new blank page** button now opens a markdown editor on the new page, ready to type into. Typing saves the text as the page's first item; leaving the editor empty adds nothing, the same rule a new paragraph follows after Enter. Template creates and **Create page with links** keep their own story."
+    },
+    {
+      "type": "markdown",
       "id": "a1005b32fa077c47",
       "text": "Why the runtime replacement? The wiki-client bundle preloads `window.plugins.future` and the plugin loader short-circuits on that map \u2014 a plugin literally *named* `future` can never load; `/plugins/future/future.js` is never fetched. The supported path is reassigning `window.plugins.future` from a client script that is already loaded, which is why this plugin's `factory.json` carries `\"editor\": true` \u2014 the preload flag that makes the wiki import this client at startup. Items rendered before the script lands are retro-fitted by an idempotent sweep."
     },
@@ -171,6 +176,26 @@
           "kind": "ai",
           "name": "Claude Code",
           "session": "07827e45-c901-439a-a177-b8fad70f8fd4"
+        }
+      }
+    },
+    {
+      "type": "add",
+      "id": "7365587d293483bb",
+      "item": {
+        "type": "markdown",
+        "id": "7365587d293483bb",
+        "text": "The plain **create new blank page** button now opens a markdown editor on the new page, ready to type into. Typing saves the text as the page's first item; leaving the editor empty adds nothing, the same rule a new paragraph follows after Enter. Template creates and **Create page with links** keep their own story."
+      },
+      "after": "354819d646d0d5e8",
+      "date": 1793037108321,
+      "provenance": "Claude Code (Opus 5.5): 0.3.3 blank create opens an editor",
+      "meta": {
+        "v": 1,
+        "agent": {
+          "kind": "ai",
+          "name": "Claude Code",
+          "session": "1436c0ae-1f2b-4287-a279-15d09dcebd48"
         }
       }
     }
